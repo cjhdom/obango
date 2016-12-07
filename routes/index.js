@@ -5,6 +5,15 @@ var ObjectId = require('mongodb').ObjectID;
 
 const url = 'mongodb://localhost:27017/obango';
 
+var ip = null;
+if( process.env.NODE_ENV == 'production' ) {
+  ip = 'http://40.74.95.94:3000/';
+} else if( process.env.NODE_ENV == 'development' ) {
+  ip = 'http://localhost:3000/';
+}
+
+console.log(process.env.NODE_ENV);
+
 //대한민국 경도범위는 124 – 132, 위도범위는 33 – 43 이다.
 //범위 +- 10미터
 //37.496000~37.500000 +- 0.00009
@@ -25,14 +34,14 @@ router.get('/', function(req, res, next) {
   }
 
   if (longitude && latitude) {
-    res.render('temp.html', {latitude, longitude});
+    res.render('temp.html', {latitude, longitude, ip});
   } else {
     res.send('?longitude=&latitude=');
   }
 });
 
 router.get('/admin', function(req, res, next) {
-  res.render('admin.html');
+  res.render('admin.html', {ip});
 });
 
 

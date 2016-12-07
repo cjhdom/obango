@@ -35,7 +35,7 @@
     });
 
     $.ajax({
-        url: 'http://40.74.95.94:3000/fetch/circle?longitude=<%-longitude%>&latitude=<%-latitude%>',
+        url: '<%-ip%>/fetch/circle?longitude=<%-longitude%>&latitude=<%-latitude%>',
         type: 'get',
         success: function (data) {
             if (data) {
