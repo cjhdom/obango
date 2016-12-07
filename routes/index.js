@@ -87,6 +87,7 @@ router.post('/coupon', (req, res, next) => {
             id: r.insertedId
           });
         }
+        db.close();
       });
     }
   });
@@ -114,6 +115,7 @@ router.delete('/coupon', (req, res, next) => {
         } else {
           res.json(result);
         }
+        db.close();
       });
     }
   });
@@ -157,6 +159,7 @@ router.get('/fetch/:type', (req, res, next) => {
         } else {
           res.json(coupons);
         }
+        db.close();
       });
     }
   });
@@ -175,6 +178,7 @@ router.get('/fetch/all', (req, res, next) => {
         } else {
           res.json(items);
         }
+        db.close();
       })
     }
   })
