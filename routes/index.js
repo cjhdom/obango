@@ -217,7 +217,7 @@ router.get('/fetch/:type', (req, res, next) => {
       var options = {};
 
       if (type === 'circle') {
-        options.maxDistanc = 0.00005 / 6.3781;
+        options.maxDistance = 0.00005 / 6.3781;
         options.spherical = true;
         options.num = 20;
         options.query = {
@@ -225,16 +225,16 @@ router.get('/fetch/:type', (req, res, next) => {
           isUse: false
         };
       } else {
+        console.log(type);
         options.maxDistance = 0.0005 / 6.3781;
         options.spherical = true;
       }
-
-      console.log(JSON.stringify(options));
 
       col.geoNear(longitude, latitude, options, function (err, coupons) {
         if (err) {
           res.json(err);
         } else {
+          console.log(JSON.stringify(options));
           res.json(coupons);
         }
         db.close();
