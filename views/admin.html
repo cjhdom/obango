@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+</head>
+
+<span id="here"><script></script></span>
+
+<div id="map" style="width:500px;height:650px;"></div>
+
+
+<script src="//apis.daum.net/maps/maps3.js?apikey=2aa368ea23368245380c05daa21460ab"></script>
+<script>
+    var centerMarker = null;
+    var currentMarkers = [];
+    var initLat = 37.498;
+    var initLng = 127.03;
+
+    var mapContainer = document.getElementById('map'), // 지도를 표시할 div
+            mapOption = {
+                center: new daum.maps.LatLng(initLat, initLng), // 지도의 중심좌표
+                level: 2, // 지도의 확대 레벨
+                mapTypeId : daum.maps.MapTypeId.ROADMAP // 지도종류
+            };
+
+    // 지도를 생성한다
+    var map = new daum.maps.Map(mapContainer, mapOption);
+
+    // 지도에 마커를 생성하고 표시한다
+    centerMarker = new daum.maps.CustomOverlay({
+        map: map,
+        clickable: true,
+        content: '<div class="customOverlay"><a href="#">CENTER</a></div>',
+        position: new daum.maps.LatLng(initLat, initLng),
+        xAnchor: 0.5,
+        yAnchor: 1,
+        zIndex: 999
+    });
+
+    daum.maps.event.addListener(map, 'click', function(mouseEvent) {
+        // 클릭한 위도, 경도 정보를 가져옵니다
+        var latlng = mouseEvent.latLng;
+
+        var desc = 'tac ' + Math.floor(Math.random() * 100) + 1;
+
+        $.ajax({
+            url: 'http://172.30.1.3:3000/coupon',
+            type: 'post',
+            data: {
+                desc: desc,
+                count: 1,
+                longitude: latlng.getLng(),
+                latitude: latlng.getLat()
+            },
+            success: function (data) {
+                if (data) {
+                    if (data.ok) {
+                        var markers = data.results;
+                        addMarker(latlng.getLat(), latlng.getLng(), desc, data.id);
+                    }
+                }
+            },
+            error: function(res) {
+                console.log(JSON.stringify(res));
+            }
+        });
+    });
+
+    daum.maps.event.addListener(map, 'dragend', function() {
+        // 지도 중심좌표를 얻어옵니다
+        var latlng = map.getCenter();
+        centerMarker.setPosition(latlng);
+        load(latlng.getLat(), latlng.getLng());
+    });
+
+    function load(lat, lng) {
+        while (currentMarkers.length > 0) {
+            var currentMarker = currentMarkers.pop();
+            currentMarker.marker.setMap(null);
+        }
+
+        $.ajax({
+            url: 'http://172.30.1.3:3000/fetch/admin?latitude=' + lat + '&longitude=' + lng,
+            type: 'get',
+            success: function (data) {
+                if (data) {
+                    if (data.ok) {
+                        var markers = data.results;
+
+                        markers.forEach(function (marker) {
+                            addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude, marker.obj.desc, marker.obj._id);
+                        });
+                    }
+                }
+            },
+            error: function(res) {
+                console.log(JSON.stringify(res));
+            }
+        });
+    }
+
+    function removeMarker(id) {
+        currentMarkers.some(function (currentMarker) {
+            if (currentMarker.id === id) {
+                $.ajax({
+                    url: 'http://172.30.1.3:3000/coupon',
+                    type: 'delete',
+                    data: {
+                        id: currentMarker.id
+                    },
+                    success: function (data) {
+                        if (data) {
+                            if (data.ok && data.n === 1) {
+                                currentMarker.marker.setMap(null);
+                                return true;
+                            }
+                        }
+                    },
+                    error: function(res) {
+                        console.log(JSON.stringify(res));
+                        return true;
+                    }
+                });
+            }
+        });
+    }
+
+    function addMarker(lat, lng, desc, id) {
+        var newMarker = new daum.maps.Marker({
+            position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
+            map: map, // 마커를 표시할 지도 객체
+            title: desc,
+            clickable: true
+        });
+
+        daum.maps.event.addListener(newMarker, 'click', function() {
+            var iwContent = '<div style="padding:5px;">' + desc + '</div>', // 인포윈도우에 표출될 내용으로 HTML 문자열이나 document element가 가능합니다
+                    iwRemoveable = true;
+
+            var infowindow = new daum.maps.InfoWindow({
+                content : iwContent,
+                removable : iwRemoveable
+            });
+            // 마커 위에 인포윈도우를 표시합니다
+            infowindow.open(map, newMarker);
+        });
+
+        daum.maps.event.addListener(newMarker, 'rightclick', function() {
+            removeMarker(id);
+        });
+
+        currentMarkers.push({
+            marker: newMarker,
+            id: id
+        });
+    }
+
+    $(document).ready(function() {
+        load(initLat, initLng);
+    });
+</script>
+
+<body>
+
+</body>
+</html>

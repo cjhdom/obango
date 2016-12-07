@@ -35,7 +35,7 @@
     });
 
     $.ajax({
-        url: 'http://172.30.1.3:3000/fetch?longitude=<%-longitude%>&latitude=<%-latitude%>',
+        url: 'http://172.30.1.3:3000/fetch/circle?longitude=<%-longitude%>&latitude=<%-latitude%>',
         type: 'get',
         success: function (data) {
             if (data) {
@@ -55,7 +55,7 @@
         error: function(res) {
             console.log(JSON.stringify(res));
         }
-    })
+    });
 
 </script>
 

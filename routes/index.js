@@ -1,16 +1,19 @@
 var express = require('express');
 var router = express.Router();
 var MongoClient = require('mongodb').MongoClient;
+var ObjectId = require('mongodb').ObjectID;
 
-var url = 'mongodb://localhost:27017/obango';
-
+const url = 'mongodb://localhost:27017/obango';
 
 //대한민국 경도범위는 124 – 132, 위도범위는 33 – 43 이다.
 //범위 +- 10미터
 //37.496000~37.500000 +- 0.00009
 //127.029000~127.031000 +- 0.000115
 
-/* GET home page. */
+///////////////////////////////////////////////////
+// WEBPAGE
+///////////////////////////////////////////////////
+
 router.get('/', function(req, res, next) {
   var longitude;
   var latitude;
@@ -28,15 +31,99 @@ router.get('/', function(req, res, next) {
   }
 });
 
-router.get('/fetch', (req, res, next) => {
+router.get('/admin', function(req, res, next) {
+  res.render('admin.html');
+});
+
+
+///////////////////////////////////////////////////
+// API
+///////////////////////////////////////////////////
+
+/**
+ * add coupon
+ */
+router.post('/coupon', (req, res, next) => {
+  var longitude = Number(req.body.longitude);
+  var latitude = Number(req.body.latitude);
+  var desc = req.body.desc;
+  var count = req.body.count;
+  var loc = {
+    longitude,
+    latitude
+  };
+
+  console.log(longitude + ',' + latitude);
+
+  MongoClient.connect(url, function(err, db) {
+    if (err) {
+      res.send({
+        ok: -1
+      });
+    } else {
+      var col = db.collection('coupon');
+
+      var coupon = {
+        desc,
+        count,
+        loc
+      };
+
+      col.insertOne(coupon, function (err, r) {
+        if (err) {
+          res.json(err);
+        } else {
+          res.json({
+            ok: 1,
+            id: r.insertedId
+          });
+        }
+      });
+    }
+  });
+});
+
+/**
+ * delete coupon
+ */
+router.delete('/coupon', (req, res, next) => {
+  var id = req.body.id;
+
+  console.log('delete ' + id);
+
+  MongoClient.connect(url, function(err, db) {
+    if (err) {
+      res.send({
+        ok: -1
+      });
+    } else {
+      var col = db.collection('coupon');
+
+      col.deleteOne({_id: ObjectId(id)}, function (err, result) {
+        if (err) {
+          res.json(err);
+        } else {
+          res.json(result);
+        }
+      });
+    }
+  });
+});
+
+router.get('/fetch/:type', (req, res, next) => {
+  var longitude = null;
+  var latitude = null;
+  var type = null;
+
   try {
-    var longitude = Number(req.query.longitude);
-    var latitude = Number(req.query.latitude);
+    longitude = Number(req.query.longitude);
+    latitude = Number(req.query.latitude);
+    type = req.params.type;
   } catch (e) {
     res.json({ok:0});
   }
 
-  console.log(longitude + ',' + latitude);
+  console.log(longitude + ',' + latitude + ',' + type);
 
   MongoClient.connect(url, function(err, db) {
     if (err) {
@@ -44,9 +131,18 @@ router.get('/fetch', (req, res, next) => {
     } else {
       var col = db.collection('coupon');
 
-      col.geoNear(longitude, latitude, {
-        maxDistance: 0.00005 / 6.3781, spherical: true, num: 20
-      }, function (err, coupons) {
+      var options = {};
+
+      if (type === 'circle') {
+        options.maxDistanc = 0.00005 / 6.3781;
+        options.spherical = true;
+        options.num = 20;
+      } else {
+        options.maxDistance = 0.0005 / 6.3781;
+        options.spherical = true;
+      }
+
+      col.geoNear(longitude, latitude, options, function (err, coupons) {
         if (err) {
           res.json(err);
         } else {
@@ -54,7 +150,7 @@ router.get('/fetch', (req, res, next) => {
         }
       });
     }
-  })
+  });
 });
 
 router.get('/fetch/all', (req, res, next) => {
@@ -77,6 +173,9 @@ router.get('/fetch/all', (req, res, next) => {
 
 module.exports = router;
 
+///////////////////////////////////////////////////
+// HELPERS
+///////////////////////////////////////////////////
 function createRandomCoupon() {
   MongoClient.connect(url, function(err, db) {
     if (err) {
@@ -96,7 +195,7 @@ function createRandomCoupon() {
         };
 
         console.log(JSON.stringify(coupon));
-        col.insert(coupon, (err) => {
+        col.insertOne(coupon, (err) => {
           if (err) {
             console.log(JSON.stringify(err));
           }
