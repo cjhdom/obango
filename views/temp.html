@@ -6,13 +6,14 @@
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 </head>
 
-<span id="here"><script>console.log(typeof <%-latitude%>);</script></span>
-
 <div id="map" style="width:500px;height:650px;"></div>
 
 
 <script src="//apis.daum.net/maps/maps3.js?apikey=2aa368ea23368245380c05daa21460ab"></script>
 <script>
+    var currentMarkers = [];
+    var url = '<%-ip%>';
+
     var mapContainer = document.getElementById('map'), // 지도를 표시할 div
             mapOption = {
                 center: new daum.maps.LatLng(<%-latitude%>, <%-longitude%>), // 지도의 중심좌표
@@ -23,40 +24,101 @@
     // 지도를 생성한다
     var map = new daum.maps.Map(mapContainer, mapOption);
 
-    // 지도에 마커를 생성하고 표시한다
-    var customOverlay = new daum.maps.CustomOverlay({
-        map: map,
-        clickable: true,
-        content: '<div class="customOverlay"><a href="#">Chart</a></div>',
-        position: new daum.maps.LatLng(<%-latitude%>, <%-longitude%>),
-        xAnchor: 0.5,
-        yAnchor: 1,
-        zIndex: 999
+    daum.maps.event.addListener(map, 'dragend', function() {
+        // 지도 중심좌표를 얻어옵니다
+        var latlng = map.getCenter();
+        load(latlng.getLat(), latlng.getLng());
     });
 
-    $.ajax({
-        url: '<%-ip%>/fetch/circle?longitude=<%-longitude%>&latitude=<%-latitude%>',
-        type: 'get',
-        success: function (data) {
-            if (data) {
-                if (data.ok) {
-                    //var markers = (JSON.parse(data)).results;
-                    var markers = data.results;
-
-                    markers.forEach(function (marker) {
-                        new daum.maps.Marker({
-                            position: new daum.maps.LatLng(marker.obj.loc.latitude, marker.obj.loc.longitude), // 마커의 좌표
-                            map: map // 마커를 표시할 지도 객체
-                        });
-                    });
-                }
-            }
-        },
-        error: function(res) {
-            console.log(JSON.stringify(res));
+    function load(lat, lng) {
+        while (currentMarkers.length > 0) {
+            var currentMarker = currentMarkers.pop();
+            currentMarker.marker.setMap(null);
         }
-    });
 
+        $.ajax({
+            url: url + '/fetch/circle?latitude=' + lat + '&longitude=' + lng,
+            type: 'get',
+            success: function (data) {
+                if (data) {
+                    if (data.ok) {
+                        var markers = data.results;
+
+                        markers.forEach(function (marker) {
+                            addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude,
+                                    marker.obj.desc, marker.obj._id, marker.obj.count);
+                        });
+                    }
+                }
+            },
+            error: function(res) {
+                console.log(JSON.stringify(res));
+            }
+        });
+    }
+
+    function addMarker(lat, lng, desc, id, count) {
+        var newMarker = new daum.maps.Marker({
+            position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
+            map: map, // 마커를 표시할 지도 객체
+            title: desc,
+            clickable: true
+        });
+
+        daum.maps.event.addListener(newMarker, 'click', function() {
+            $.ajax({
+                url: url + '/coupon/enter',
+                type: 'post',
+                data: {
+                    id: id
+                },
+                success: function (data) {
+                    if (data && data.value) {
+                        alert('enter successful');
+                        console.log(JSON.stringify(data));
+                    } else {
+                        alert('enter failed');
+                    }
+                },
+                error: function(res) {
+                    console.log('error in coupon/enter');
+                    console.log(JSON.stringify(res));
+                    return true;
+                }
+            });
+        });
+
+        daum.maps.event.addListener(newMarker, 'rightclick', function() {
+            $.ajax({
+                url: url + '/coupon/exit',
+                type: 'post',
+                data: {
+                    id: id
+                },
+                success: function (data) {
+                    if (data && data.value) {
+                        alert('exit successful');
+                    } else {
+                        alert('exit failed');
+                    }
+                },
+                error: function(res) {
+                    console.log('error in coupon/exit');
+                    console.log(JSON.stringify(res));
+                    return true;
+                }
+            });
+        });
+
+        currentMarkers.push({
+            marker: newMarker,
+            id: id
+        });
+    }
+
+    $(document).ready(function() {
+        load(<%-latitude%>, <%-longitude%>);
+    });
 </script>
 
 <body>

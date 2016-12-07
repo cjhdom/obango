@@ -14,7 +14,6 @@
 <script src="//apis.daum.net/maps/maps3.js?apikey=2aa368ea23368245380c05daa21460ab"></script>
 <script>
     var url = '<%-ip%>';
-    var centerMarker = null;
     var currentMarkers = [];
     var initLat = 37.498;
     var initLng = 127.03;
@@ -28,17 +27,6 @@
 
     // 지도를 생성한다
     var map = new daum.maps.Map(mapContainer, mapOption);
-
-    // 지도에 마커를 생성하고 표시한다
-    centerMarker = new daum.maps.CustomOverlay({
-        map: map,
-        clickable: true,
-        content: '<div class="customOverlay"><a href="#">CENTER</a></div>',
-        position: new daum.maps.LatLng(initLat, initLng),
-        xAnchor: 0.5,
-        yAnchor: 1,
-        zIndex: 999
-    });
 
     daum.maps.event.addListener(map, 'click', function(mouseEvent) {
         // 클릭한 위도, 경도 정보를 가져옵니다
@@ -59,7 +47,7 @@
                 if (data) {
                     if (data.ok) {
                         var markers = data.results;
-                        addMarker(latlng.getLat(), latlng.getLng(), desc, data.id);
+                        addMarker(latlng.getLat(), latlng.getLng(), desc, data.id, data.count, data.isUse);
                     }
                 }
             },
@@ -72,7 +60,6 @@
     daum.maps.event.addListener(map, 'dragend', function() {
         // 지도 중심좌표를 얻어옵니다
         var latlng = map.getCenter();
-        centerMarker.setPosition(latlng);
         load(latlng.getLat(), latlng.getLng());
     });
 
@@ -91,7 +78,8 @@
                         var markers = data.results;
 
                         markers.forEach(function (marker) {
-                            addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude, marker.obj.desc, marker.obj._id);
+                            addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude,
+                                    marker.obj.desc, marker.obj._id, marker.obj.count, marker.obj.isUse);
                         });
                     }
                 }
@@ -128,7 +116,7 @@
         });
     }
 
-    function addMarker(lat, lng, desc, id) {
+    function addMarker(lat, lng, desc, id, count, isUse) {
         var newMarker = new daum.maps.Marker({
             position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
             map: map, // 마커를 표시할 지도 객체
@@ -137,7 +125,8 @@
         });
 
         daum.maps.event.addListener(newMarker, 'click', function() {
-            var iwContent = '<div style="padding:5px;">' + desc + '</div>', // 인포윈도우에 표출될 내용으로 HTML 문자열이나 document element가 가능합니다
+            var iwContent = '<div style="padding:5px;">' + desc + '(' + count + ',' + isUse +
+                    ')</div>',
                     iwRemoveable = true;
 
             var infowindow = new daum.maps.InfoWindow({
