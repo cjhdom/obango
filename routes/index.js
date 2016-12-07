@@ -7,7 +7,7 @@ const url = 'mongodb://localhost:27017/obango';
 
 var ip = null;
 if( process.env.NODE_ENV == 'production' ) {
-  ip = 'http://40.74.95.94:3000';
+  ip = 'http://52.185.153.207';
 } else if( process.env.NODE_ENV == 'development' ) {
   ip = 'http://localhost:3000';
 }
