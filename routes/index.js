@@ -87,7 +87,8 @@ router.post('/coupon', (req, res, next) => {
             ok: 1,
             id: r.insertedId,
             count: count,
-            isUse: false
+            isUse: false,
+            loc
           });
         }
         db.close();
@@ -120,6 +121,48 @@ router.delete('/coupon', (req, res, next) => {
         }
         db.close();
       });
+    }
+  });
+});
+
+/**
+ * update coupon
+ */
+router.put('/coupon', (req, res, next) => {
+  var id = req.body.id;
+  var latitude = Number(req.body.latitude);
+  var longitude = Number(req.body.longitude);
+
+  console.log('put ' + id);
+
+  MongoClient.connect(url, function(err, db) {
+    if (err) {
+      res.send({
+        ok: -1
+      });
+    } else {
+      var col = db.collection('coupon');
+      var query = {
+        _id: ObjectId(id)
+      };
+
+      var updateQuery = {
+        $set: {
+          loc: {
+            longitude,
+            latitude
+          }
+        }
+      };
+
+      col.findOneAndUpdate(query, updateQuery)
+        .then(result => {
+          return res.json(result);
+        })
+        .catch(result => {
+          console.log(JSON.stringify(result));
+          return res.json(result);
+        });
     }
   });
 });
@@ -210,6 +253,7 @@ router.get('/fetch/:type', (req, res, next) => {
 
   MongoClient.connect(url, function(err, db) {
     if (err) {
+      err.ok = 0;
       res.send(JSON.stringify(err));
     } else {
       var col = db.collection('coupon');
@@ -225,7 +269,6 @@ router.get('/fetch/:type', (req, res, next) => {
           isUse: false
         };
       } else {
-        console.log(type);
         options.maxDistance = 0.0005 / 6.3781;
         options.spherical = true;
       }
@@ -234,7 +277,6 @@ router.get('/fetch/:type', (req, res, next) => {
         if (err) {
           res.json(err);
         } else {
-          console.log(JSON.stringify(options));
           res.json(coupons);
         }
         db.close();
@@ -246,6 +288,7 @@ router.get('/fetch/:type', (req, res, next) => {
 router.get('/fetch/all', (req, res, next) => {
   MongoClient.connect(url, function(err, db) {
     if (err) {
+      err.ok = 0;
       res.send(JSON.stringify(err));
     } else {
       var col = db.collection('coupon');
@@ -285,7 +328,6 @@ function createRandomCoupon() {
           }
         };
 
-        console.log(JSON.stringify(coupon));
         col.insertOne(coupon, (err) => {
           if (err) {
             console.log(JSON.stringify(err));

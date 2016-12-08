@@ -4,15 +4,47 @@
     <meta charset="UTF-8">
     <title>Title</title>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 </head>
+<body style="background-color:#eee">
+<div class="row">
+<div class="col-md-1" style="width:500px"><div id="map" style="width:500px;height:600px;"></div></div>
+<div class="col-md-1" style="width:500px">
+        <table class="table">
+            <thead>
+                <tr>
+                    <td>id</td>
+                    <td>desc</td>
+                    <td>count</td>
+                    <td>isUse</td>
+                    <td>lat</td>
+                    <td>lng</td>
+                </tr>
+            </thead>
+            <tbody id="couponTable">
 
-<span id="here"><script></script></span>
-
-<div id="map" style="width:500px;height:650px;"></div>
-
+            </tbody>
+        </table>
+</div>
+</div>
 
 <script src="//apis.daum.net/maps/maps3.js?apikey=2aa368ea23368245380c05daa21460ab"></script>
 <script>
+    daum.maps.Marker.prototype.setId = function (id) {
+        this.myId = String(id);
+    };
+
+    daum.maps.Marker.prototype.getId = function () {
+        return this.myId;
+    };
+
     var url = '<%-ip%>';
     var currentMarkers = [];
     var initLat = 37.498;
@@ -46,8 +78,8 @@
             success: function (data) {
                 if (data) {
                     if (data.ok) {
-                        var markers = data.results;
                         addMarker(latlng.getLat(), latlng.getLng(), desc, data.id, data.count, data.isUse);
+                        addRow(data.id, desc, data.count, data.isUse, data.loc.latitude, data.loc.longitude);
                     }
                 }
             },
@@ -64,9 +96,10 @@
     });
 
     function load(lat, lng) {
+        $("#couponTable").html('');
         while (currentMarkers.length > 0) {
             var currentMarker = currentMarkers.pop();
-            currentMarker.marker.setMap(null);
+            currentMarker.setMap(null);
         }
 
         $.ajax({
@@ -80,6 +113,8 @@
                         markers.forEach(function (marker) {
                             addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude,
                                     marker.obj.desc, marker.obj._id, marker.obj.count, marker.obj.isUse);
+                            addRow(marker.obj._id, marker.obj.desc, marker.obj.count, marker.obj.isUse,
+                                marker.obj.loc.latitude, marker.obj.loc.longitude);
                         });
                     }
                 }
@@ -92,17 +127,17 @@
 
     function removeMarker(id) {
         currentMarkers.some(function (currentMarker) {
-            if (currentMarker.id === id) {
+            if (currentMarker.getId() === id) {
                 $.ajax({
                     url: url + '/coupon',
                     type: 'delete',
                     data: {
-                        id: currentMarker.id
+                        id: currentMarker.getId()
                     },
                     success: function (data) {
                         if (data) {
                             if (data.ok && data.n === 1) {
-                                currentMarker.marker.setMap(null);
+                                currentMarker.setMap(null);
                                 return true;
                             }
                         }
@@ -121,8 +156,11 @@
             position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
             map: map, // 마커를 표시할 지도 객체
             title: desc,
-            clickable: true
+            clickable: true,
+            draggable: true
         });
+
+        newMarker.setId(id);
 
         daum.maps.event.addListener(newMarker, 'click', function() {
             var iwContent = '<div style="padding:5px;">' + desc + '(' + count + ',' + isUse +
@@ -139,12 +177,71 @@
 
         daum.maps.event.addListener(newMarker, 'rightclick', function() {
             removeMarker(id);
+            removeRow(id);
         });
 
-        currentMarkers.push({
-            marker: newMarker,
-            id: id
+        daum.maps.event.addListener(newMarker, 'dragend', function() {
+            var newPosition = newMarker.getPosition();
+
+            $.ajax({
+                url: url + '/coupon',
+                type: 'put',
+                data: {
+                    id: newMarker.getId(),
+                    longitude: newPosition.getLng(),
+                    latitude: newPosition.getLat()
+                },
+                success: function (data) {
+                    if (data) {
+                        if (data.ok && data.value) {
+                            $('#' + id + ' .lat').html(newPosition.getLat());
+                            $('#' + id + ' .lng').html(newPosition.getLng());
+                            return true;
+                        }
+                    }
+                },
+                error: function(res) {
+                    console.log(JSON.stringify(res));
+                    return true;
+                }
+            });
         });
+
+        currentMarkers.push(newMarker);
+    }
+
+    function addRow(id, desc, count, isUse, lat, lng) {
+        $("#couponTable").append('<tr id="' + id + '">' + '<td>' +
+                id + '</td><td>' +
+                desc + '</td><td>' +
+                count + '</td><td>' +
+                isUse + '</td><td class="lat">' +
+                lat + '</td><td class="lng">' +
+                lng + '</td><td>'
+        );
+
+        $("#" + id).on('click', function () {
+           currentMarkers.some(function (currentMarker) {
+               if (currentMarker.getId() === id) {
+                   var iwContent = '<div style="padding:5px;">' + desc + '(' + count + ',' + isUse +
+                                   ')</div>',
+                           iwRemoveable = true;
+
+                   var infowindow = new daum.maps.InfoWindow({
+                       content : iwContent,
+                       removable : iwRemoveable
+                   });
+                   // 마커 위에 인포윈도우를 표시합니다
+                   infowindow.open(map, currentMarker);
+               } else {
+                   return false;
+               }
+           })
+        });
+    }
+
+    function removeRow(id) {
+        $("#" + id).remove();
     }
 
     $(document).ready(function() {
@@ -152,7 +249,7 @@
     });
 </script>
 
-<body>
+
 
 </body>
 </html>
