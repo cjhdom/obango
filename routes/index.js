@@ -12,26 +12,25 @@ if( process.env.NODE_ENV == 'production' ) {
   ip = 'http://localhost:3000';
 }
 
-console.log(process.env.NODE_ENV);
-
+//////////////////////////////////////////////////////////////
 //대한민국 경도범위는 124 – 132, 위도범위는 33 – 43 이다.
+//아래는 강남~역삼 부근 좌표 범위
 //범위 +- 10미터
 //37.496000~37.500000 +- 0.00009
 //127.029000~127.031000 +- 0.000115
+/////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////
 // WEBPAGE
 ///////////////////////////////////////////////////
 
+/**
+ * 메인 페이지 웹뷰 버전
+ */
 router.get('/', function(req, res, next) {
-  var longitude;
-  var latitude;
-  try {
-    longitude = Number(req.query.longitude);
-    latitude = Number(req.query.latitude);
-  } catch (e) {
-    res.send('error in type casting');
-  }
+  var longitude = Number(req.query.longitude);;
+  var latitude = Number(req.query.latitude);
 
   if (longitude && latitude) {
     res.render('temp.html', {latitude, longitude, ip});
@@ -40,6 +39,9 @@ router.get('/', function(req, res, next) {
   }
 });
 
+/**
+ * 어드민 페이지
+ */
 router.get('/admin', function(req, res, next) {
   res.render('admin.html', {ip});
 });
@@ -48,7 +50,6 @@ router.get('/admin', function(req, res, next) {
 ///////////////////////////////////////////////////
 // API
 ///////////////////////////////////////////////////
-
 /**
  * add coupon
  */
@@ -133,8 +134,6 @@ router.put('/coupon', (req, res, next) => {
   var latitude = Number(req.body.latitude);
   var longitude = Number(req.body.longitude);
 
-  console.log('put ' + id);
-
   MongoClient.connect(url, function(err, db) {
     if (err) {
       res.send({
@@ -167,6 +166,9 @@ router.put('/coupon', (req, res, next) => {
   });
 });
 
+/**
+ * 쿠폰을 찾아서 게임 시작
+ */
 router.post('/coupon/enter', (req, res, next) => {
   var id = req.body.id;
 
@@ -199,6 +201,9 @@ router.post('/coupon/enter', (req, res, next) => {
   });
 });
 
+/**
+ * 게임 결과
+ */
 router.post('/coupon/exit/:result', (req, res, next) => {
   var id = req.body.id;
   var result = req.params.result;
@@ -238,6 +243,9 @@ router.post('/coupon/exit/:result', (req, res, next) => {
   });
 });
 
+/**
+ * 중심 좌표로 쿠폰 정보 불러오기
+ */
 router.get('/fetch/:type', (req, res, next) => {
   var longitude = null;
   var latitude = null;
@@ -285,6 +293,9 @@ router.get('/fetch/:type', (req, res, next) => {
   });
 });
 
+/**
+ * 모든 쿠폰 정보 불러오기
+ */
 router.get('/fetch/all', (req, res, next) => {
   MongoClient.connect(url, function(err, db) {
     if (err) {
@@ -308,7 +319,7 @@ router.get('/fetch/all', (req, res, next) => {
 module.exports = router;
 
 ///////////////////////////////////////////////////
-// HELPERS
+// HELPERS - DB에 랜덤 값을 생성해주는 함수들 (현재 사용 X)
 ///////////////////////////////////////////////////
 function createRandomCoupon() {
   MongoClient.connect(url, function(err, db) {

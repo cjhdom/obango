@@ -24,18 +24,26 @@
     // 지도를 생성한다
     var map = new daum.maps.Map(mapContainer, mapOption);
 
+    //지도 드레그 이벤트
     daum.maps.event.addListener(map, 'dragend', function() {
         // 지도 중심좌표를 얻어옵니다
         var latlng = map.getCenter();
         load(latlng.getLat(), latlng.getLng());
     });
 
+    /**
+     * 가운데 좌표 정보를 가지고 일정 반경 내에 마커 정보를 서버에서 불로온다
+     * @param lat
+     * @param lng
+     */
     function load(lat, lng) {
+        //기존 마커를 다 삭제한다
         while (currentMarkers.length > 0) {
             var currentMarker = currentMarkers.pop();
             currentMarker.marker.setMap(null);
         }
 
+        //서버에서 API 호출해서 좌표 정보들을 가져온다.
         $.ajax({
             url: url + '/fetch/circle?latitude=' + lat + '&longitude=' + lng,
             type: 'get',
@@ -57,7 +65,16 @@
         });
     }
 
+    /**
+     * 마커를 지도상에 찍어주고 관련된 이벤트들을 생성해준다
+     * @param lat
+     * @param lng
+     * @param desc
+     * @param id
+     * @param count
+     */
     function addMarker(lat, lng, desc, id, count) {
+        //마커 생성
         var newMarker = new daum.maps.Marker({
             position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
             map: map, // 마커를 표시할 지도 객체
@@ -65,6 +82,7 @@
             clickable: true
         });
 
+        //마커 왼쪽 클릭 이벤트 - 추가
         daum.maps.event.addListener(newMarker, 'click', function() {
             $.ajax({
                 url: url + '/coupon/enter',
@@ -88,6 +106,7 @@
             });
         });
 
+        //마커 오른쪽 클릭 이벤트 - 삭제
         daum.maps.event.addListener(newMarker, 'rightclick', function() {
             $.ajax({
                 url: url + '/coupon/exit',
@@ -110,12 +129,14 @@
             });
         });
 
+        //전역 마커 배열에 넣어둔다.
         currentMarkers.push({
             marker: newMarker,
             id: id
         });
     }
 
+    // 페이지 로드 후 최초 로딩
     $(document).ready(function() {
         load(<%-latitude%>, <%-longitude%>);
     });
