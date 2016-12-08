@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+</head>
+<body style="background-color:#eee">
+<div class="row">
+<div class="col-md-1" style="width:500px">
+    <div id="map" style="width:500px;height:600px;"></div>
+</div>
+<div class="col-md-1" style="width:500px">
+        <table class="table">
+            <thead>
+                <tr>
+                    <td>id</td>
+                    <td>desc</td>
+                    <td>count</td>
+                    <td>isUse</td>
+                    <td>lat</td>
+                    <td>lng</td>
+                </tr>
+            </thead>
+            <tbody id="couponTable">
+                <!-- inser coupon info row -->
+            </tbody>
+        </table>
+</div>
+</div>
+
+<script src="//apis.daum.net/maps/maps3.js?apikey=2aa368ea23368245380c05daa21460ab"></script>
+<script>
+    //다음 지도 마커에 DB에 저장된 ID 값을 갖도록
+    daum.maps.Marker.prototype.setId = function (id) {
+        this.myId = String(id);
+    };
+
+    daum.maps.Marker.prototype.getId = function () {
+        return this.myId;
+    };
+
+    var url = '<%-ip%>';
+    var currentMarkers = [];
+    var initLat = 37.498;
+    var initLng = 127.03;
+
+    var mapContainer = document.getElementById('map'), // 지도를 표시할 div
+            mapOption = {
+                center: new daum.maps.LatLng(initLat, initLng), // 지도의 중심좌표
+                level: 2, // 지도의 확대 레벨
+                mapTypeId : daum.maps.MapTypeId.ROADMAP // 지도종류
+            };
+
+    // 지도를 생성한다
+    var map = new daum.maps.Map(mapContainer, mapOption);
+
+    //지도 오른쪽 클릭 - 마커 생성
+    daum.maps.event.addListener(map, 'click', function(mouseEvent) {
+        // 클릭한 위도, 경도 정보를 가져옵니다
+        var latlng = mouseEvent.latLng;
+
+        var desc = 'tac ' + Math.floor(Math.random() * 100) + 1;
+
+        $.ajax({
+            url: url + '/coupon',
+            type: 'post',
+            data: {
+                desc: desc,
+                count: 1,
+                longitude: latlng.getLng(),
+                latitude: latlng.getLat()
+            },
+            success: function (data) {
+                if (data) {
+                    if (data.ok) {
+                        addMarker(latlng.getLat(), latlng.getLng(), desc, data.id, data.count, data.isUse);
+                        addRow(data.id, desc, data.count, data.isUse, data.loc.latitude, data.loc.longitude);
+                    }
+                }
+            },
+            error: function(res) {
+                console.log(JSON.stringify(res));
+            }
+        });
+    });
+
+    //지도 드래그 이벤트 - 새로운 중심 좌표로 마커를 재생성한다
+    daum.maps.event.addListener(map, 'dragend', function() {
+        // 지도 중심좌표를 얻어옵니다
+        var latlng = map.getCenter();
+        load(latlng.getLat(), latlng.getLng());
+    });
+
+    /**
+     * 기존 마커 정보를 다 지우고 쿠폰 정보를 가져온다
+     * @param lat
+     * @param lng
+     */
+    function load(lat, lng) {
+        // 지도위에 마커와 테이블에 있는 정보를 초기화한다
+        $("#couponTable").html('');
+        while (currentMarkers.length > 0) {
+            var currentMarker = currentMarkers.pop();
+            currentMarker.setMap(null);
+        }
+
+        // 서버에서 쿠폰 정보를 가져온다
+        $.ajax({
+            url: url + '/fetch/admin?latitude=' + lat + '&longitude=' + lng,
+            type: 'get',
+            success: function (data) {
+                if (data) {
+                    if (data.ok) {
+                        var markers = data.results;
+
+                        markers.forEach(function (marker) {
+                            addMarker(marker.obj.loc.latitude, marker.obj.loc.longitude,
+                                    marker.obj.desc, marker.obj._id, marker.obj.count, marker.obj.isUse);
+                            addRow(marker.obj._id, marker.obj.desc, marker.obj.count, marker.obj.isUse,
+                                marker.obj.loc.latitude, marker.obj.loc.longitude);
+                        });
+                    }
+                }
+            },
+            error: function(res) {
+                console.log(JSON.stringify(res));
+            }
+        });
+    }
+
+    /**
+     * 마커를 삭제를 위해 서버에 삭제 요청을 보내고 성공하면 웹에서도 마커를 삭제해준다
+     * @param id
+     */
+    function removeMarker(id) {
+        currentMarkers.some(function (currentMarker) {
+            if (currentMarker.getId() === id) {
+                $.ajax({
+                    url: url + '/coupon',
+                    type: 'delete',
+                    data: {
+                        id: currentMarker.getId()
+                    },
+                    success: function (data) {
+                        if (data) {
+                            if (data.ok && data.n === 1) {
+                                currentMarker.setMap(null);
+                                return true;
+                            }
+                        }
+                    },
+                    error: function(res) {
+                        console.log(JSON.stringify(res));
+                        return true;
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * 쿠폰을 새로 생성하고 마커를 추가해준다
+     * @param lat
+     * @param lng
+     * @param desc
+     * @param id
+     * @param count
+     * @param isUse
+     */
+    function addMarker(lat, lng, desc, id, count, isUse) {
+        //마커 생성
+        var newMarker = new daum.maps.Marker({
+            position: new daum.maps.LatLng(lat, lng), // 마커의 좌표
+            map: map, // 마커를 표시할 지도 객체
+            title: desc,
+            clickable: true,
+            draggable: true
+        });
+
+        newMarker.setId(id);
+
+        //마커 왼쪽 클릭 이벤트 - 쿠폰 정보를 보여준다
+        daum.maps.event.addListener(newMarker, 'click', function() {
+            var iwContent = '<div style="padding:5px;">' + desc + '(' + count + ',' + isUse +
+                    ')</div>',
+                    iwRemoveable = true;
+
+            var infowindow = new daum.maps.InfoWindow({
+                content : iwContent,
+                removable : iwRemoveable
+            });
+            // 마커 위에 인포윈도우를 표시합니다
+            infowindow.open(map, newMarker);
+        });
+
+        //마커 오른쪽 클릭 이벤트 - 쿠폰을 삭제한다
+        daum.maps.event.addListener(newMarker, 'rightclick', function() {
+            removeMarker(id);
+            removeRow(id);
+        });
+
+        //마커 드레그 이벤트 - 쿠폰 위치를 수정한다
+        daum.maps.event.addListener(newMarker, 'dragend', function() {
+            var newPosition = newMarker.getPosition();
+
+            $.ajax({
+                url: url + '/coupon',
+                type: 'put',
+                data: {
+                    id: newMarker.getId(),
+                    longitude: newPosition.getLng(),
+                    latitude: newPosition.getLat()
+                },
+                success: function (data) {
+                    if (data) {
+                        if (data.ok && data.value) {
+                            $('#' + id + ' .lat').html(newPosition.getLat());
+                            $('#' + id + ' .lng').html(newPosition.getLng());
+                            return true;
+                        }
+                    }
+                },
+                error: function(res) {
+                    console.log(JSON.stringify(res));
+                    return true;
+                }
+            });
+        });
+
+        currentMarkers.push(newMarker);
+    }
+
+    /**
+     * 쿠폰 테이블에 쿠폰 정보를 넣어준다
+     * @param id
+     * @param desc
+     * @param count
+     * @param isUse
+     * @param lat
+     * @param lng
+     */
+    function addRow(id, desc, count, isUse, lat, lng) {
+        $("#couponTable").append('<tr id="' + id + '">' + '<td>' +
+                id + '</td><td>' +
+                desc + '</td><td>' +
+                count + '</td><td>' +
+                isUse + '</td><td class="lat">' +
+                lat + '</td><td class="lng">' +
+                lng + '</td><td>'
+        );
+
+        $("#" + id).on('click', function () {
+           currentMarkers.some(function (currentMarker) {
+               if (currentMarker.getId() === id) {
+                   var iwContent = '<div style="padding:5px;">' + desc + '(' + count + ',' + isUse +
+                                   ')</div>',
+                           iwRemoveable = true;
+
+                   var infowindow = new daum.maps.InfoWindow({
+                       content : iwContent,
+                       removable : iwRemoveable
+                   });
+                   // 마커 위에 인포윈도우를 표시합니다
+                   infowindow.open(map, currentMarker);
+               } else {
+                   return false;
+               }
+           })
+        });
+    }
+
+    /**
+     * 쿠폰 테이블에 id에 맞는 쿠폰을 삭제한다
+     * @param id
+     */
+    function removeRow(id) {
+        $("#" + id).remove();
+    }
+
+    //페이지 로딩 후 최초 1회 마커 생성
+    $(document).ready(function() {
+        load(initLat, initLng);
+    });
+</script>
+
+
+
+</body>
+</html>
